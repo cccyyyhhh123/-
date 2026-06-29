@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共享共用记账账本</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+        body{background:#f5f7fa;padding:20px;max-width:1000px;margin:0 auto}
+        .box{background:#fff;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px #00000010}
+        h2{color:#222;margin-bottom:16px}
+        .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+        input,select,button{padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px}
+        input,select{flex:1;min-width:140px}
+        .add-btn{background:#2563eb;color:#fff;border:none;cursor:pointer}
+        .del-btn{background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer}
+        .key-btn{background:#6366f1;color:#fff;border:none}
+        .stat-item{padding:16px;border-radius:10px;text-align:center}
+        .income{background:#dcfce7;color:#16a34a}
+        .pay{background:#fee2e2;color:#dc2626}
+        .balance{background:#dbeafe;color:#2563eb}
+        table{width:100%;border-collapse:collapse;margin-top:10px}
+        th,td{border:1px solid #eee;padding:12px;text-align:center}
+        th{background:#f9fafb}
+        .filter{margin-bottom:12px}
+        .key-box{max-width:420px;margin:60px auto;text-align:center}
+        .hide{display:none}
+        .tip{color:#666;font-size:14px;margin:8px 0}
+    </style>
+</head>
+<body>
+<!-- 密钥验证界面（进入共享账本） -->
+<div id="keyWrap" class="key-box box">
+    <h2>共享账本入口</h2>
+    <p class="tip">输入账本密钥，所有人共用同一套账单</p>
+    <div class="row">
+        <input id="shareKey" placeholder="输入6位共享密钥">
+        <button class="key-btn" onclick="enterBook()">进入账本</button>
+    </div>
+    <div style="margin-top:14px">
+        <button class="key-btn" onclick="createNewBook()">创建新共享账本（生成密钥）</button>
+    </div>
+</div>
+
+<!-- 记账主界面（所有人操作同一账户） -->
+<div id="mainWrap" class="hide">
+    <div class="box">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <h2>共享账本｜密钥：<span id="currentKey"></span></h2>
+            <button class="key-btn" onclick="exitBook()">退出账本</button>
+        </div>
+        <p class="tip">⚠️ 当前所有人共用同一账单，添加/删除记录所有人可见</p>
+    </div>
+
+   
+     <div class="box">
+        <h2>📊 游玩统计</h2>
+        <div class="stat">
+            <div class="stat-item income">
+                <div>本月累存</div>
+                <div id="totalIncome" style="font-size:22px;font-weight:bold">0.00</div>
+            </div>
+            <div class="stat-item pay">
+                <div>本月总支出</div>
+                <div id="totalPay" style="font-size:22px;font-weight:bold">0.00</div>
+            </div>
+            <div class="stat-item balance">
+                <div>本月结余</div>
+                <div id="surplus" style="font-size:22px;font-weight:bold">0.00</div>
+            </div>
+        </div>
+    </div>
+    
+    
+    
+    <div class="box">
+        <h2>➕ 添加账单</h2>
+        <div class="row">
+            <input type="date" id="billDate">
+            <select id="billType">
+                <option value="收入">收入</option>
+                <option value="支出">支出</option>
+            </select>
+            <select id="billClass">
+                <option value="屏享">屏享</option>
+                <option value="瓦">瓦</option>
+                <option value="steam">steam</option>
+                
+            </select>
+            <input type="number" step="0.01" placeholder="金额" id="billMoney">
+            <input type="text" placeholder="备注" id="billNote">
+            <button class="add-btn" onclick="addBill()">保存账单</button>
+        </div>
+    </div>
+
+    <div class="box">
+        <div class="filter row">
+            <select id="filterMonth">
+                <option value="">全部月份</option>
+            </select>
+            <select id="filterType">
+                <option value="">全部收支</option>
+                <option value="收入">仅收入</option>
+                <option value="支出">仅支出</option>
+            </select>
+        </div>
+        <h2>📃 共用账单明细</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>类型</th>
+                    <th>分类</th>
+                    <th>金额</th>
+                    <th>备注</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="billList"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let globalShareKey = "";
+// 所有共享账本存储：{密钥: 账单数组}
+let shareBooks = JSON.parse(localStorage.getItem("shareBillStorage")) || {};
+const dateInput = document.getElementById("billDate");
+const now = new Date();
+dateInput.value = now.toISOString().split("T")[0];
+
+// 保存所有账本到本地
+function saveAllBooks() {
+    localStorage.setItem("shareBillStorage", JSON.stringify(shareBooks));
+}
+
+// 生成6位随机数字密钥
+function createNewBook() {
+    let key = "";
+    for(let i=0;i<6;i++) key += Math.floor(Math.random()*10);
+    if(!shareBooks[key]) shareBooks[key] = [];
+    saveAllBooks();
+    alert(`创建成功！你的共享密钥：${key}\n把密钥发给家人/朋友即可共用账本`);
+    document.getElementById("shareKey").value = key;
+}
+
+// 通过密钥进入共享账本（所有人操作同一套数据）
+function enterBook() {
+    const inputKey = document.getElementById("shareKey").value.trim();
+    if(inputKey.length !== 6 || isNaN(inputKey)) {
+        alert("请输入6位数字密钥");
+        return;
+    }
+    if(!shareBooks[inputKey]) {
+        alert("该账本不存在，请核对密钥或新建账本");
+        return;
+    }
+    globalShareKey = inputKey;
+    document.getElementById("currentKey").innerText = globalShareKey;
+    document.getElementById("keyWrap").classList.add("hide");
+    document.getElementById("mainWrap").classList.remove("hide");
+    renderPage();
+}
+
+// 退出账本回到密钥页
+function exitBook() {
+    globalShareKey = "";
+    document.getElementById("keyWrap").classList.remove("hide");
+    document.getElementById("mainWrap").classList.add("hide");
+    document.getElementById("shareKey").value = "";
+}
+
+// 获取当前共享账本的账单数组
+function getCurrentBillList() {
+    return shareBooks[globalShareKey] || [];
+}
+
+// 初始化月份筛选下拉框
+function initMonthFilter() {
+    const monthSel = document.getElementById("filterMonth");
+    monthSel.innerHTML = `<option value="">全部月份</option>`;
+    const billArr = getCurrentBillList();
+    const monthSet = new Set();
+    billArr.forEach(item => monthSet.add(item.date.slice(0,7)));
+    Array.from(monthSet).sort().reverse().forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.innerText = m;
+        monthSel.appendChild(opt);
+    })
+}
+
+// 添加共用账单（所有人可见）
+function addBill() {
+    const date = document.getElementById("billDate").value;
+    const type = document.getElementById("billType").value;
+    const cls = document.getElementById("billClass").value;
+    const money = Number(document.getElementById("billMoney").value);
+    const note = document.getElementById("billNote").value.trim();
+    if(!date || !money || money <= 0) {
+        alert("请填写合法日期与金额");
+        return;
+    }
+    const newBill = {
+        id: Date.now(),
+        date,
+        type,
+        class: cls,
+        money,
+        note
+    }
+    shareBooks[globalShareKey].push(newBill);
+    saveAllBooks();
+    renderPage();
+    document.getElementById("billMoney").value = "";
+    document.getElementById("billNote").value = "";
+}
+
+// 删除账单（任何人都能删除当前账本记录）
+function delBill(billId) {
+    const list = getCurrentBillList();
+    shareBooks[globalShareKey] = list.filter(item => item.id !== billId);
+    saveAllBooks();
+    renderPage();
+}
+
+// 渲染账单表格
+function renderPage() {
+    initMonthFilter();
+    const filterMonth = document.getElementById("filterMonth").value;
+    const filterType = document.getElementById("filterType").value;
+    let showList = [...getCurrentBillList()];
+    if(filterMonth) showList = showList.filter(i => i.date.startsWith(filterMonth));
+    if(filterType) showList = showList.filter(i => i.type === filterType);
+
+    const tbody = document.getElementById("billList");
+    tbody.innerHTML = "";
+    showList.forEach(item => {
+        const tr = document.createElement("tr");
+        const moneyHtml = item.type === "收入"
+            ? `<span style="color:#16a34a">+${item.money.toFixed(2)}</span>`
+            : `<span style="color:#dc2626">-${item.money.toFixed(2)}</span>`;
+        tr.innerHTML = `
+            <td>${item.date}</td>
+            <td>${item.type}</td>
+            <td>${item.class}</td>
+            <td>${moneyHtml}</td>
+            <td>${item.note || "无"}</td>
+            <td><button class="del-btn" onclick="delBill(${item.id})">删除</button></td>
+        `;
+        tbody.appendChild(tr);
+    })
+}
+
+// 筛选切换刷新表格
+document.getElementById("filterMonth").onchange = renderPage;
+document.getElementById("filterType").onchange = renderPage;
+</script>
+</body>
+</html>
