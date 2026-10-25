@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>史迪奇桌宠</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: transparent;
+            min-height: 100vh;
+        }
+        #stitchPet {
+            position: fixed;
+            left: 200px;
+            top: 200px;
+            z-index: 99999;
+            cursor: grab;
+            user-select: none;
+        }
+        #stitchPet:active {
+            cursor: grabbing;
+        }
+        #stitchImg {
+            pointer-events: none;
+            display: block;
+        }
+        .bubble {
+            position: absolute;
+            background: #ffffff;
+            color: #222;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            left: calc(100% + 8px);
+            top: -12px;
+            z-index: 100;
+        }
+        .stitch-contextmenu {
+            position: fixed;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+            padding: 6px 0;
+            z-index: 999999;
+            display: none;
+        }
+        .stitch-contextmenu div {
+            padding:7px 14px;
+            cursor: pointer;
+            font-size:14px;
+        }
+        .stitch-contextmenu div:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="stitchPet">
+        <img id="stitchImg" src="https://p3-flow-image-sign.byteimg.com/tos-cn-i-a9rns2rl98/07510132313c40489441401440441113~tplv-a9rns2rl98-image.image">
+        <div class="bubble" id="bubble" style="display:none;"></div>
+    </div>
+    <div class="stitch-contextmenu" id="stitchMenu">
+        <div onclick="stitchScale(0.06)">放大</div>
+        <div onclick="stitchScale(-0.06)">缩小</div>
+        <div onclick="hideStitch()">隐藏史迪奇</div>
+    </div>
+
+<script>
+const stitchPet = document.getElementById("stitchPet");
+const stitchImg = document.getElementById("stitchImg");
+const bubble = document.getElementById("bubble");
+const stitchMenu = document.getElementById("stitchMenu");
+
+const chatList = ["呜哇！","哦哈呐～","陪我玩嘛！","外星人报到！","好吃的在哪里？","抱抱🥺","Stitch!"];
+let scale = 0.35;
+stitchImg.style.width = scale * 400 + "px";
+
+let drag = false, ox, oy;
+stitchPet.onmousedown = (e) => {
+    if(e.button !== 0) return;
+    drag = true;
+    ox = e.clientX - stitchPet.offsetLeft;
+    oy = e.clientY - stitchPet.offsetTop;
+}
+document.onmousemove = e => {
+    if(!drag) return;
+    stitchPet.style.left = (e.clientX - ox) + "px";
+    stitchPet.style.top = (e.clientY - oy) + "px";
+}
+document.onmouseup = (e) => {
+    if(drag){
+        drag = false;
+        if(Math.abs(e.clientX - ox) < 8 && Math.abs(e.clientY - oy) < 8){
+            stitchClick();
+        }
+    }
+}
+
+stitchPet.onwheel = (e) => {
+    e.preventDefault();
+    if(e.deltaY < 0) stitchScale(0.06);
+    else stitchScale(-0.06);
+}
+function stitchScale(d){
+    scale = Math.max(0.15, Math.min(0.8, scale + d));
+    stitchImg.style.width = scale * 400 + "px";
+}
+function hideStitch(){
+    stitchPet.style.display = "none";
+    stitchMenu.style.display = "none";
+}
+
+stitchPet.oncontextmenu = e => {
+    e.preventDefault();
+    stitchMenu.style.left = e.clientX + "px";
+    stitchMenu.style.top = e.clientY + "px";
+    stitchMenu.style.display = "block";
+}
+document.addEventListener("click", () => stitchMenu.style.display = "none");
+
+function stitchClick(){
+    const anims = [animJump, animSquash, animShake];
+    const fn = anims[Math.floor(Math.random() * anims.length)];
+    fn();
+    showBubble(chatList[Math.floor(Math.random() * chatList.length)]);
+}
+function showBubble(text){
+    bubble.innerText = text;
+    bubble.style.display = "block";
+    clearTimeout(window.bubbleTimer);
+    window.bubbleTimer = setTimeout(()=>bubble.style.display="none",1600);
+}
+
+function animJump(s=0){
+    const off = [0,-25,-40,-25,0];
+    if(s >= off.length) return;
+    stitchPet.style.transform = `translateY(${off[s]}px)`;
+    setTimeout(()=>animJump(s+1),70);
+}
+function animSquash(s=0){
+    const seq = [1,0.7,1.2,1];
+    if(s >= seq.length) return;
+    stitchImg.style.transform = `scaleY(${seq[s]}) scaleX(${2-seq[s]})`;
+    setTimeout(()=>animSquash(s+1),80);
+}
+function animShake(s=0){
+    const sh = [-8,8,-6,6,-3,3,0];
+    if(s >= sh.length) return;
+    stitchPet.style.transform = `translateX(${sh[s]}px)`;
+    setTimeout(()=>animShake(s+1),60);
+}
+</script>
+</body>
+</html>
